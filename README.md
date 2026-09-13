@@ -33,6 +33,7 @@ The Blueprint uses Render's free plans for development. Free database instances 
 | `GET` | `/api/health` | Verify that the API is running |
 | `GET` | `/api/markets` | Return the prototype market ticker |
 | `GET` | `/api/me` | Return the authenticated user for a bearer token |
+| `GET` | `/api/dashboard` | Return authenticated account balances and holdings |
 | `POST` | `/api/auth/register` | Create a PostgreSQL-backed account |
 | `POST` | `/api/auth/login` | Authenticate an account and create a persisted session |
 

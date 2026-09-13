@@ -79,6 +79,22 @@ async function getAuthenticatedUser(request) {
   return result.rows[0] || null;
 }
 
+async function getDashboardData(userId) {
+  await pool.query(
+    'INSERT INTO accounts (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING',
+    [userId]
+  );
+  const account = await pool.query(
+    'SELECT available_balance, total_return FROM accounts WHERE user_id = $1',
+    [userId]
+  );
+  const holdings = await pool.query(
+    'SELECT asset, quantity, value, change24h FROM holdings WHERE user_id = $1 ORDER BY asset',
+    [userId]
+  );
+  return { account: account.rows[0], holdings: holdings.rows };
+}
+
 async function clearTestData() {
   const result = await pool.query(`
     DELETE FROM users
@@ -107,6 +123,26 @@ async function initializeDatabase() {
       user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS accounts (
+      user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      portfolio_value NUMERIC(18, 2) NOT NULL DEFAULT 0,
+      available_balance NUMERIC(18, 2) NOT NULL DEFAULT 0,
+      total_return NUMERIC(18, 2) NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    ALTER TABLE accounts ADD COLUMN IF NOT EXISTS portfolio_value NUMERIC(18, 2) NOT NULL DEFAULT 0;
+
+    CREATE TABLE IF NOT EXISTS holdings (
+      id BIGSERIAL PRIMARY KEY,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      asset TEXT NOT NULL,
+      quantity NUMERIC(24, 8) NOT NULL DEFAULT 0,
+      value NUMERIC(18, 2) NOT NULL DEFAULT 0,
+      change24h NUMERIC(8, 2) NOT NULL DEFAULT 0,
+      UNIQUE (user_id, asset)
+    );
   `);
 }
 
@@ -123,6 +159,12 @@ async function handleApi(request, response, url) {
     const user = await getAuthenticatedUser(request);
     if (!user) return sendJson(response, 401, { error: 'Authentication required' });
     return sendJson(response, 200, { user });
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/dashboard') {
+    const user = await getAuthenticatedUser(request);
+    if (!user) return sendJson(response, 401, { error: 'Authentication required' });
+    return sendJson(response, 200, await getDashboardData(user.id));
   }
 
   if (request.method === 'POST' && url.pathname === '/api/admin/clear-test-data') {
@@ -152,6 +194,7 @@ async function handleApi(request, response, url) {
       'INSERT INTO users (id, email, first_name, last_name, password_hash) VALUES ($1, $2, $3, $4, $5)',
       [user.id, user.email, user.firstName, user.lastName, user.passwordHash]
     );
+    await pool.query('INSERT INTO accounts (user_id) VALUES ($1)', [user.id]);
     return sendJson(response, 201, { user: publicUser(user) });
   }
 
