@@ -61,7 +61,7 @@ function passwordMatches(password, storedHash) {
 }
 
 function publicUser(user) {
-  return { id: user.id, email: user.email };
+  return { id: user.id, email: user.email, firstName: user.first_name || user.firstName || '' };
 }
 
 async function getAuthenticatedUser(request) {
@@ -70,7 +70,7 @@ async function getAuthenticatedUser(request) {
   if (!token) return null;
 
   const result = await pool.query(
-    `SELECT users.id, users.email
+    `SELECT users.id, users.email, users.first_name
      FROM sessions
      INNER JOIN users ON users.id = sessions.user_id
      WHERE sessions.token = $1`,
@@ -93,9 +93,14 @@ async function initializeDatabase() {
     CREATE TABLE IF NOT EXISTS users (
       id UUID PRIMARY KEY,
       email TEXT UNIQUE NOT NULL,
+      first_name TEXT NOT NULL DEFAULT '',
+      last_name TEXT NOT NULL DEFAULT '',
       password_hash TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT NOT NULL DEFAULT '';
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name TEXT NOT NULL DEFAULT '';
 
     CREATE TABLE IF NOT EXISTS sessions (
       token TEXT PRIMARY KEY,
@@ -133,17 +138,19 @@ async function handleApi(request, response, url) {
   if (url.pathname === '/api/auth/register') {
     const body = await readJson(request);
     const email = String(body.email || '').trim().toLowerCase();
+    const firstName = String(body.firstName || '').trim();
+    const lastName = String(body.lastName || '').trim();
     const password = String(body.password || '');
-    if (!email || !email.includes('@') || password.length < 8) {
-      return sendJson(response, 400, { error: 'A valid email and password of at least 8 characters are required' });
+    if (!email || !email.includes('@') || !firstName || !lastName || password.length < 8) {
+      return sendJson(response, 400, { error: 'First name, last name, a valid email, and a password of at least 8 characters are required' });
     }
     const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
     if (existingUser.rowCount) return sendJson(response, 409, { error: 'An account with that email already exists' });
 
-    const user = { id: crypto.randomUUID(), email, passwordHash: hashPassword(password) };
+    const user = { id: crypto.randomUUID(), email, firstName, lastName, passwordHash: hashPassword(password) };
     await pool.query(
-      'INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3)',
-      [user.id, user.email, user.passwordHash]
+      'INSERT INTO users (id, email, first_name, last_name, password_hash) VALUES ($1, $2, $3, $4, $5)',
+      [user.id, user.email, user.firstName, user.lastName, user.passwordHash]
     );
     return sendJson(response, 201, { user: publicUser(user) });
   }
@@ -152,7 +159,7 @@ async function handleApi(request, response, url) {
     const body = await readJson(request);
     const email = String(body.email || '').trim().toLowerCase();
     const result = await pool.query(
-      'SELECT id, email, password_hash FROM users WHERE email = $1',
+      'SELECT id, email, first_name, password_hash FROM users WHERE email = $1',
       [email]
     );
     const user = result.rows[0];

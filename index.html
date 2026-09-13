@@ -273,6 +273,7 @@
       .account-page { padding-top: 24px; }
       .account-layout { grid-template-columns: 1fr; }
       .account-page { padding-bottom: 112px; }
+      .account-panel { overflow: hidden; }
       .account-sidebar {
         position: fixed;
         height: 68px;
@@ -307,6 +308,8 @@
       .page-heading { display: block; }
       .page-heading .btn { margin-top: 14px; }
       .auth-card { padding: 22px; }
+      .table {margin-left: -24px;}
+      .footer { display: none; }
     }
 
     .nav-actions {
@@ -1236,15 +1239,15 @@
           <button class="side-link" data-page="profile" aria-label="Profile" title="Profile"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c.8-3.5 3.5-5 8-5s7.2 1.5 8 5"></path></svg></button>
         </aside>
         <section class="account-content">
-          <div class="page-heading"><div><h1>Good morning, Alex.</h1><p>Your portfolio is moving with the market.</p></div><a class="btn btn-primary" href="#deposit" data-page="deposit">Add funds</a></div>
+          <div class="page-heading"><div><h1>Welcome back.</h1><p>Your portfolio is ready when you are.</p></div><a class="btn btn-primary" href="#deposit" data-page="deposit">Add funds</a></div>
           <div class="dashboard-grid">
             <div class="account-panel stat-panel">
-              <div><span>Portfolio value</span><strong>$48,280.62</strong><small>+8.4% this month</small></div>
-              <div><span>Available balance</span><strong>$12,640.00</strong><small>Ready to invest</small></div>
-              <div><span>Total return</span><strong>+$6,184.20</strong><small>Since opening</small></div>
+              <div><span>Portfolio value</span><strong>$0.00</strong><small>Start investing when ready</small></div>
+              <div><span>Available balance</span><strong>$0.00</strong><small>No funds deposited</small></div>
+              <div><span>Total return</span><strong>$0.00</strong><small>No activity yet</small></div>
             </div>
           </div>
-          <section class="account-panel"><h2>Holdings</h2><table><thead><tr><th>Asset</th><th>Amount</th><th>Value</th><th>24h</th></tr></thead><tbody><tr><td><span class="token"><span class="token-bullet" style="background:#f7931a"></span>Bitcoin</span></td><td>0.42 BTC</td><td>$26,997</td><td class="up">+2.4%</td></tr><tr><td><span class="token"><span class="token-bullet" style="background:#7d8ec9"></span>Ethereum</span></td><td>4.1 ETH</td><td>$14,022</td><td class="up">+1.8%</td></tr><tr><td><span class="token"><span class="token-bullet" style="background:#14f195"></span>Solana</span></td><td>45 SOL</td><td>$7,261</td><td class="up">+4.3%</td></tr></tbody></table></section>
+          <section class="account-panel"><h2>Holdings</h2><p class="empty-state">No holdings yet. Deposit funds to start building your portfolio.</p></section>
           <section class="account-panel"><h2>Quick actions</h2><div class="dashboard-actions"><a class="btn btn-primary" href="#deposit" data-page="deposit">Deposit funds</a><a class="btn btn-secondary" href="#withdrawal" data-page="withdrawal">Withdraw funds</a></div></section>
         </section>
       </div>
@@ -1264,7 +1267,7 @@
   </main>
 
   <main id="portfolio-page" class="page-view">
-    <div class="container account-page"><div class="account-layout"><aside class="account-sidebar"><div class="sidebar-label">Account</div></aside><section class="account-content"><div class="page-heading"><div><h1>Portfolio.</h1><p>A clear view of your allocation and performance.</p></div><a class="btn btn-primary" href="#deposit" data-page="deposit">Add funds</a></div><section class="account-panel"><h2>Allocation</h2><table><thead><tr><th>Asset</th><th>Allocation</th><th>Value</th><th>Return</th></tr></thead><tbody><tr><td><span class="token"><span class="token-bullet" style="background:#f7931a"></span>Bitcoin</span></td><td>56%</td><td>$26,997</td><td class="up">+12.8%</td></tr><tr><td><span class="token"><span class="token-bullet" style="background:#7d8ec9"></span>Ethereum</span></td><td>29%</td><td>$14,022</td><td class="up">+7.4%</td></tr><tr><td><span class="token"><span class="token-bullet" style="background:#14f195"></span>Solana</span></td><td>15%</td><td>$7,261</td><td class="up">+18.1%</td></tr></tbody></table></section><section class="account-panel"><h2>Performance</h2><div class="dashboard-grid"><div class="stat-panel"><div><span>30 day return</span><strong>+8.4%</strong><small>Above market average</small></div><div><span>Cost basis</span><strong>$42,096</strong><small>Across 3 assets</small></div><div><span>Risk profile</span><strong>Balanced</strong><small>Moderate exposure</small></div></div></div></section></section></div></div>
+    <div class="container account-page"><div class="account-layout"><aside class="account-sidebar"><div class="sidebar-label">Account</div></aside><section class="account-content"><div class="page-heading"><div><h1>Portfolio.</h1><p>A clear view of your allocation and performance.</p></div><a class="btn btn-primary" href="#deposit" data-page="deposit">Add funds</a></div><section class="account-panel"><h2>Allocation</h2><p class="empty-state">Your portfolio allocation will appear here after you make a deposit.</p></section><section class="account-panel"><h2>Performance</h2><p class="empty-state">Performance data will appear after your first investment.</p></section></section></div></div>
   </main>
 
   <button id="chat-fab" aria-label="Open support chat">
@@ -1338,7 +1341,7 @@
       try {
         const result = await apiRequest('/api/me');
         const heading = document.querySelector('#dashboard-page .page-heading h1');
-        if (heading) heading.textContent = `Welcome back, ${result.user.email}.`;
+        if (heading) heading.textContent = `Welcome back, ${result.user.firstName || 'investor'}.`;
         return result.user;
       } catch {
         localStorage.removeItem(authTokenKey);
@@ -1363,7 +1366,11 @@
             method: 'POST',
             body: JSON.stringify({
               email: document.getElementById(emailId).value,
-              password: document.getElementById(passwordId).value
+              password: document.getElementById(passwordId).value,
+              ...(isLogin ? {} : {
+                firstName: document.getElementById('first-name').value,
+                lastName: document.getElementById('last-name').value
+              })
             })
           });
 
