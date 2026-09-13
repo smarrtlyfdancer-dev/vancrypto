@@ -53,6 +53,15 @@ npm run db:clear-test
 
 This only removes accounts matching `copilot-*@example.com`.
 
+If the service plan does not provide a shell, temporarily add a Render environment variable named `CLEANUP_TOKEN`, redeploy, then call:
+
+```powershell
+$headers = @{ Authorization = "Bearer YOUR_CLEANUP_TOKEN" }
+Invoke-RestMethod https://your-service.onrender.com/api/admin/clear-test-data -Method Post -Headers $headers
+```
+
+Remove `CLEANUP_TOKEN` from Render after the request succeeds and redeploy again. Without that variable, the cleanup route is disabled.
+
 ## Backend roadmap
 
 1. Connect the login, registration, and dashboard forms to the API.

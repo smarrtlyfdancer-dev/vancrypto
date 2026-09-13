@@ -8,16 +8,12 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
-async function clearTestData() {
-  const result = await pool.query(`
-    DELETE FROM users
-    WHERE email LIKE 'copilot-%@example.com'
-    RETURNING email
-  `);
-  console.log(`Removed ${result.rowCount} temporary test account(s).`);
-}
-
-clearTestData()
+pool.query(`
+  DELETE FROM users
+  WHERE email LIKE 'copilot-%@example.com'
+  RETURNING email
+`)
+  .then((result) => console.log(`Removed ${result.rowCount} temporary test account(s).`))
   .catch((error) => {
     console.error(error.message);
     process.exitCode = 1;

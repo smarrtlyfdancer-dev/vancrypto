@@ -1180,7 +1180,7 @@
           <h3>Start building your crypto portfolio.</h3>
           <p>Trade smarter with institutional tools, premium support, and a broker designed for acceleration.</p>
         </div>
-        <a class="btn btn-primary" href="#">Open an account</a>
+        <a class="btn btn-primary" href="#register" data-page="register">Open an account</a>
       </div>
     </section>
   </main>
@@ -1190,12 +1190,13 @@
       <section class="auth-card">
         <h1>Welcome back.</h1>
         <p>Sign in to manage your portfolio and active orders.</p>
-        <form data-demo-form>
+        <form data-auth-form="login">
           <div class="form-grid">
             <div class="field full"><label for="login-email">Email address</label><input id="login-email" type="email" placeholder="you@example.com" required></div>
             <div class="field full"><label for="login-password">Password</label><input id="login-password" type="password" placeholder="Enter your password" required></div>
           </div>
           <button class="btn btn-primary" type="submit">Log in</button>
+          <p class="auth-message" aria-live="polite"></p>
         </form>
         <p class="auth-switch">New to Vanguard Crypto? <a href="#register" data-page="register">Create an account</a></p>
       </section>
@@ -1207,7 +1208,7 @@
       <section class="auth-card">
         <h1>Open your account.</h1>
         <p>Build a smarter digital asset portfolio in a few minutes.</p>
-        <form data-demo-form>
+        <form data-auth-form="register">
           <div class="form-grid">
             <div class="field"><label for="first-name">First name</label><input id="first-name" type="text" required></div>
             <div class="field"><label for="last-name">Last name</label><input id="last-name" type="text" required></div>
@@ -1215,6 +1216,7 @@
             <div class="field full"><label for="register-password">Create password</label><input id="register-password" type="password" required></div>
           </div>
           <button class="btn btn-primary" type="submit">Create account</button>
+          <p class="auth-message" aria-live="polite"></p>
         </form>
         <p class="auth-switch">Already registered? <a href="#login" data-page="login">Log in</a></p>
       </section>
@@ -1282,6 +1284,9 @@
     const pageLinks = document.querySelectorAll('[data-page]');
 
     function showPage(pageName) {
+      if (pageName === 'dashboard' && !localStorage.getItem(authTokenKey)) {
+        pageName = 'login';
+      }
       const target = document.getElementById(pageName + '-page');
       if (!target) return;
       pages.forEach((page) => page.classList.toggle('is-active', page === target));
@@ -1306,19 +1311,86 @@
       });
     });
 
-    document.querySelectorAll('[data-demo-form]').forEach((form) => {
-      form.addEventListener('submit', (event) => {
+    const apiBase = '';
+    const authTokenKey = 'vancrypto.authToken';
+
+    async function apiRequest(path, options = {}) {
+      const token = localStorage.getItem(authTokenKey);
+      const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const response = await fetch(apiBase + path, { ...options, headers });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'Something went wrong');
+      return body;
+    }
+
+    function setAuthMessage(form, message, isError = false) {
+      const messageElement = form.querySelector('.auth-message');
+      messageElement.textContent = message;
+      messageElement.style.color = isError ? 'var(--red)' : 'var(--green)';
+    }
+
+    async function loadCurrentUser() {
+      if (!localStorage.getItem(authTokenKey)) return null;
+      try {
+        const result = await apiRequest('/api/me');
+        const heading = document.querySelector('#dashboard-page .page-heading h1');
+        if (heading) heading.textContent = `Welcome back, ${result.user.email}.`;
+        return result.user;
+      } catch {
+        localStorage.removeItem(authTokenKey);
+        return null;
+      }
+    }
+
+    document.querySelectorAll('[data-auth-form]').forEach((form) => {
+      form.addEventListener('submit', async (event) => {
         event.preventDefault();
         const button = form.querySelector('button[type="submit"]');
         const originalLabel = button.textContent;
-        button.textContent = 'Saved';
-        setTimeout(() => { button.textContent = originalLabel; }, 1400);
+        const isLogin = form.dataset.authForm === 'login';
+        const emailId = isLogin ? 'login-email' : 'register-email';
+        const passwordId = isLogin ? 'login-password' : 'register-password';
+        button.disabled = true;
+        button.textContent = isLogin ? 'Signing in...' : 'Creating account...';
+        setAuthMessage(form, '');
+
+        try {
+          const result = await apiRequest(`/api/auth/${isLogin ? 'login' : 'register'}`, {
+            method: 'POST',
+            body: JSON.stringify({
+              email: document.getElementById(emailId).value,
+              password: document.getElementById(passwordId).value
+            })
+          });
+
+          if (isLogin) {
+            localStorage.setItem(authTokenKey, result.token);
+            await loadCurrentUser();
+            showPage('dashboard');
+            history.pushState({ pageName: 'dashboard' }, '', '#dashboard');
+          } else {
+            const loginForm = document.querySelector('[data-auth-form="login"]');
+            loginForm.querySelector('#login-email').value = document.getElementById('register-email').value;
+            loginForm.querySelector('#login-password').value = '';
+            form.reset();
+            showPage('login');
+            history.pushState({ pageName: 'login' }, '', '#login');
+            setAuthMessage(loginForm, 'Account created successfully. Log in to continue.');
+          }
+        } catch (error) {
+          setAuthMessage(form, error.message, true);
+        } finally {
+          button.disabled = false;
+          button.textContent = originalLabel;
+        }
       });
     });
 
     const initialPage = window.location.hash.slice(1);
     if (document.getElementById(initialPage + '-page')) showPage(initialPage);
     window.addEventListener('popstate', () => showPage(window.location.hash.slice(1) || 'landing'));
+    loadCurrentUser();
   </script>
 </body>
 </html>

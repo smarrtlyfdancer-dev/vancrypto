@@ -7,6 +7,7 @@ const { Pool } = require('pg');
 
 const port = Number(process.env.PORT) || 3000;
 const databaseUrl = process.env.DATABASE_URL;
+const cleanupToken = process.env.CLEANUP_TOKEN;
 if (!databaseUrl) throw new Error('DATABASE_URL is required');
 
 const pool = new Pool({
@@ -78,6 +79,15 @@ async function getAuthenticatedUser(request) {
   return result.rows[0] || null;
 }
 
+async function clearTestData() {
+  const result = await pool.query(`
+    DELETE FROM users
+    WHERE email LIKE 'copilot-%@example.com'
+    RETURNING email
+  `);
+  return result.rows.map((user) => user.email);
+}
+
 async function initializeDatabase() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
@@ -108,6 +118,14 @@ async function handleApi(request, response, url) {
     const user = await getAuthenticatedUser(request);
     if (!user) return sendJson(response, 401, { error: 'Authentication required' });
     return sendJson(response, 200, { user });
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/admin/clear-test-data') {
+    const authorization = request.headers.authorization || '';
+    const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+    if (!cleanupToken || token !== cleanupToken) return sendJson(response, 404, { error: 'Not found' });
+    const removed = await clearTestData();
+    return sendJson(response, 200, { removed });
   }
 
   if (request.method !== 'POST') return sendJson(response, 405, { error: 'Method not allowed' });
