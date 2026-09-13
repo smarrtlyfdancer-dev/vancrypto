@@ -63,6 +63,21 @@ function publicUser(user) {
   return { id: user.id, email: user.email };
 }
 
+async function getAuthenticatedUser(request) {
+  const authorization = request.headers.authorization || '';
+  const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+  if (!token) return null;
+
+  const result = await pool.query(
+    `SELECT users.id, users.email
+     FROM sessions
+     INNER JOIN users ON users.id = sessions.user_id
+     WHERE sessions.token = $1`,
+    [token]
+  );
+  return result.rows[0] || null;
+}
+
 async function initializeDatabase() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
@@ -87,6 +102,12 @@ async function handleApi(request, response, url) {
 
   if (request.method === 'GET' && url.pathname === '/api/markets') {
     return sendJson(response, 200, { data: markets, updatedAt: new Date().toISOString() });
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/me') {
+    const user = await getAuthenticatedUser(request);
+    if (!user) return sendJson(response, 401, { error: 'Authentication required' });
+    return sendJson(response, 200, { user });
   }
 
   if (request.method !== 'POST') return sendJson(response, 405, { error: 'Method not allowed' });

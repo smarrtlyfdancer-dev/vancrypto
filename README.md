@@ -32,6 +32,7 @@ The Blueprint uses Render's free plans for development. Free database instances 
 | --- | --- | --- |
 | `GET` | `/api/health` | Verify that the API is running |
 | `GET` | `/api/markets` | Return the prototype market ticker |
+| `GET` | `/api/me` | Return the authenticated user for a bearer token |
 | `POST` | `/api/auth/register` | Create a PostgreSQL-backed account |
 | `POST` | `/api/auth/login` | Authenticate an account and create a persisted session |
 
@@ -43,6 +44,14 @@ Example registration request:
   "password": "at-least-8-characters"
 }
 ```
+
+To remove temporary smoke-test accounts from the hosted database, open the Render web service shell and run:
+
+```sh
+npm run db:clear-test
+```
+
+This only removes accounts matching `copilot-*@example.com`.
 
 ## Backend roadmap
 
