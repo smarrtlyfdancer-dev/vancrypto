@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: vancrypto-api
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: vancrypto-db
+          property: connectionString
+
+databases:
+  - name: vancrypto-db
+    databaseName: vancrypto
+    user: vancrypto
+    plan: free

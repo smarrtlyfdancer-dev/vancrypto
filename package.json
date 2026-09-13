@@ -1,0 +1,19 @@
+{
+  "name": "vancrypto",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Vanguard Crypto prototype and starter API",
+  "main": "server.js",
+  "scripts": {
+    "check": "node --check server.js",
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "dotenv": "^16.6.1",
+    "pg": "^8.16.3"
+  }
+}
