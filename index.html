@@ -1311,7 +1311,8 @@
       });
     });
 
-    const apiBase = '';
+    const isLocalDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const apiBase = isLocalDevelopment ? 'http://localhost:3000' : 'https://vancrypto-api.onrender.com';
     const authTokenKey = 'vancrypto.authToken';
 
     async function apiRequest(path, options = {}) {
